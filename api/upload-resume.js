@@ -10,9 +10,13 @@ const setCorsHeaders = (res) => {
 
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     fileFilter: (req, file, cb) => {
-        const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        const allowed = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ];
         if (allowed.includes(file.mimetype)) {
             cb(null, true);
         } else {
@@ -37,34 +41,21 @@ module.exports = async (req, res) => {
         if (err) {
             return res.status(400).json({ error: err.message });
         }
-
         if (req.method !== 'POST') {
             return res.status(405).json({ error: 'Method not allowed' });
         }
 
-        const { username } = req.body;
+        const { name, email } = req.body;
         const file = req.file;
 
-        if (!file) {
-            return res.status(400).json({ error: 'Missing file' });
+        if (!name || !email || !file) {
+            return res.status(400).json({ error: 'Missing name, email, or file' });
         }
 
         try {
-            let userId = null;
-
-            // If username is provided, try to find the user
-            if (username) {
-                const users = await query('SELECT id FROM users WHERE username = ?', [username]);
-                if (users.length > 0) {
-                    userId = users[0].id;
-                }
-            }
-
-            // Generate unique filename
             const ext = file.originalname.split('.').pop();
-            const filename = `resumes/${Date.now()}-${userId || 'guest'}.${ext}`;
+            const filename = `${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
 
-            // Upload to Supabase Storage (private bucket)
             const { data: uploadData, error: uploadError } = await supabase.storage
                 .from('resumes')
                 .upload(filename, file.buffer, {
@@ -78,19 +69,17 @@ module.exports = async (req, res) => {
                 return res.status(500).json({ error: 'File upload failed' });
             }
 
-            // Insert record into MySQL (user_id can be NULL)
+            const { data: urlData } = supabase.storage
+                .from('resumes')
+                .getPublicUrl(filename);
+            const fileUrl = urlData.publicUrl;
+
             await query(
-                `INSERT INTO resumes (user_id, filename, file_path, file_size, mime_type)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [userId, file.originalname, filename, file.size, file.mimetype]
+                `INSERT INTO resumes (name, email, resume_link) VALUES (?, ?, ?)`,
+                [name, email, fileUrl]
             );
 
-            // Generate a signed URL for immediate preview (optional)
-            const { data: signedUrlData } = await supabase.storage
-                .from('resumes')
-                .createSignedUrl(filename, 60 * 5); // 5 minutes expiry
-
-            res.json({ success: true, fileUrl: signedUrlData.signedUrl });
+            res.json({ success: true, fileUrl });
         } catch (err) {
             console.error(err);
             res.status(500).json({ error: 'Database or upload error' });
