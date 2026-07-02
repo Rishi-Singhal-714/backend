@@ -1,4 +1,4 @@
-const { query } = require('./_db');
+const { query, parseOwnedSkins } = require('./_db');
 
 const setCorsHeaders = (res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -23,13 +23,11 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // Start transaction
-        const pool = require('./_db').getPool();
+        const pool = require('./_db').getPool(); // we need pool for transaction
         const connection = await pool.getConnection();
         await connection.beginTransaction();
 
         try {
-            // Get current score and owned skins
             const [rows] = await connection.query(
                 'SELECT score, owned_skins FROM users WHERE username = ? FOR UPDATE',
                 [username]
@@ -37,11 +35,10 @@ module.exports = async (req, res) => {
             if (rows.length === 0) throw new Error('User not found');
 
             const user = rows[0];
-            let owned = JSON.parse(user.owned_skins || '["default"]');
+            let owned = parseOwnedSkins(user.owned_skins);
             if (owned.includes(skin)) throw new Error('Skin already owned');
             if (user.score < cost) throw new Error('Not enough coins');
 
-            // Deduct score and add skin
             const newScore = user.score - cost;
             owned.push(skin);
             await connection.query(
