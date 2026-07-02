@@ -1,5 +1,4 @@
-const axios = require('axios');
-const PROXY_URL = 'https://backendapi.freedev.app/api/db-proxy.php';
+const { query } = require('./_db');
 
 const setCorsHeaders = (res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,16 +15,29 @@ module.exports = async (req, res) => {
         setCorsHeaders(res);
         return res.status(405).json({ error: 'Method not allowed' });
     }
+
+    const { username } = req.body;
+    if (!username) {
+        setCorsHeaders(res);
+        return res.status(400).json({ error: 'Missing username' });
+    }
+
     try {
-        const response = await axios.post(`${PROXY_URL}?action=get-user`, req.body, {
-            headers: { 'Content-Type': 'application/json' }
-        });
+        const rows = await query(
+            'SELECT id, username, score, current_skin, owned_skins FROM users WHERE username = ?',
+            [username]
+        );
+        if (rows.length === 0) {
+            setCorsHeaders(res);
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const user = rows[0];
+        user.owned_skins = JSON.parse(user.owned_skins || '["default"]');
         setCorsHeaders(res);
-        res.json(response.data);
-    } catch (error) {
+        res.json(user);
+    } catch (err) {
         setCorsHeaders(res);
-        const status = error.response?.status || 500;
-        const data = error.response?.data || { error: 'Proxy request failed' };
-        res.status(status).json(data);
+        console.error(err);
+        res.status(500).json({ error: 'Database error' });
     }
 };
