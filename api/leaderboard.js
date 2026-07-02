@@ -1,5 +1,4 @@
-const axios = require('axios');
-const PROXY_URL = 'https://backendapi.freedev.app/api/db-proxy.php';
+const { query } = require('./_db');
 
 const setCorsHeaders = (res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,12 +15,16 @@ module.exports = async (req, res) => {
         setCorsHeaders(res);
         return res.status(405).json({ error: 'Method not allowed' });
     }
+
     try {
-        const response = await axios.get(`${PROXY_URL}?action=leaderboard`);
+        const rows = await query(
+            'SELECT username, score FROM users ORDER BY score DESC LIMIT 10'
+        );
         setCorsHeaders(res);
-        res.json(response.data);
-    } catch (error) {
+        res.json(rows);
+    } catch (err) {
         setCorsHeaders(res);
-        res.status(500).json({ error: 'Proxy request failed' });
+        console.error(err);
+        res.status(500).json({ error: 'Database error' });
     }
 };
