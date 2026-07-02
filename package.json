@@ -1,8 +1,11 @@
 {
   "name": "mario-backend-aiven",
   "version": "1.0.0",
+  "description": "Mario game backend with Aiven MySQL, Supabase Storage, and resume upload",
   "dependencies": {
     "mysql2": "^3.6.0",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "@supabase/supabase-js": "^2.39.0"
   }
 }
