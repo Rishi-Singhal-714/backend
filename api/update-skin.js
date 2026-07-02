@@ -1,4 +1,4 @@
-const { query } = require('./_db');
+const { query, parseOwnedSkins } = require('./_db');
 
 const setCorsHeaders = (res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -23,18 +23,16 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // Verify skin is owned
         const rows = await query('SELECT owned_skins FROM users WHERE username = ?', [username]);
         if (rows.length === 0) {
             setCorsHeaders(res);
             return res.status(404).json({ error: 'User not found' });
         }
-        const owned = JSON.parse(rows[0].owned_skins || '["default"]');
+        const owned = parseOwnedSkins(rows[0].owned_skins);
         if (!owned.includes(skin)) {
             setCorsHeaders(res);
             return res.status(403).json({ error: 'Skin not owned' });
         }
-        // Update current_skin
         await query('UPDATE users SET current_skin = ? WHERE username = ?', [skin, username]);
         setCorsHeaders(res);
         res.json({ success: true, current_skin: skin });
