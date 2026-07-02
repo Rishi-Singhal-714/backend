@@ -41,15 +41,32 @@ module.exports = async (req, res) => {
             return res.status(405).json({ error: 'Method not allowed' });
         }
 
-        const { job_id, name, email } = req.body;
+        // Extract all fields
+        const {
+            job_id,
+            name,
+            email,
+            phone,
+            linkedin,
+            portfolio,
+            cover_letter,
+            years_experience
+        } = req.body;
+
         const file = req.file;
 
-        if (!job_id || !name || !email || !file) {
-            return res.status(400).json({ error: 'Missing job_id, name, email, or file' });
+        // Validation
+        if (!job_id || !name || !email || !phone || !file) {
+            return res.status(400).json({ error: 'Missing required fields: job_id, name, email, phone, and resume file' });
+        }
+
+        // Validate email format (basic)
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({ error: 'Invalid email format' });
         }
 
         try {
-            // Upload to Supabase private bucket (use public URL for now)
+            // Upload to Supabase
             const ext = file.originalname.split('.').pop();
             const filename = `applications/${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
 
@@ -66,21 +83,35 @@ module.exports = async (req, res) => {
                 return res.status(500).json({ error: 'File upload failed' });
             }
 
-            // Get public URL (or signed URL – we'll use public)
+            // Get public URL
             const { data: urlData } = supabase.storage
                 .from('resumes')
                 .getPublicUrl(filename);
 
             const resumeUrl = urlData.publicUrl;
 
-            // Insert application
-            await query(
-                `INSERT INTO applications (job_id, applicant_name, applicant_email, resume_url)
-                 VALUES (?, ?, ?, ?)`,
-                [job_id, name, email, resumeUrl]
+            // Insert into applications with all fields
+            const insertResult = await query(
+                `INSERT INTO applications 
+                    (job_id, applicant_name, applicant_email, phone, linkedin, portfolio, cover_letter, years_experience, resume_url)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    job_id,
+                    name,
+                    email,
+                    phone,
+                    linkedin || null,
+                    portfolio || null,
+                    cover_letter || null,
+                    years_experience ? parseInt(years_experience) : null,
+                    resumeUrl
+                ]
             );
 
-            res.json({ success: true, resumeUrl });
+            // Optionally, fetch the inserted application to return (optional)
+            const newApp = await query('SELECT * FROM applications WHERE id = ?', [insertResult.insertId]);
+
+            res.status(201).json({ success: true, application: newApp[0] });
         } catch (err) {
             console.error(err);
             res.status(500).json({ error: 'Database or upload error' });
