@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
 
     try {
         const rows = await query(
-            'SELECT id, username, score, current_skin, owned_skins FROM users WHERE username = ? AND password = ?',
+            'SELECT id, username, score, current_skin, owned_skins, admin FROM users WHERE username = ? AND password = ?',
             [username, password]
         );
         if (rows.length === 0) {
