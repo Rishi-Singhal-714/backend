@@ -1,4 +1,4 @@
-const { query } = require('./_db');
+const { query, parseOwnedSkins } = require('./_db');
 
 const setCorsHeaders = (res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -23,9 +23,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // Update score
         await query('UPDATE users SET score = score + ? WHERE username = ?', [points, username]);
-        // Get updated user
         const rows = await query(
             'SELECT score, current_skin, owned_skins FROM users WHERE username = ?',
             [username]
@@ -35,7 +33,7 @@ module.exports = async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         const user = rows[0];
-        user.owned_skins = JSON.parse(user.owned_skins || '["default"]');
+        user.owned_skins = parseOwnedSkins(user.owned_skins);
         setCorsHeaders(res);
         res.json({
             newScore: user.score,
