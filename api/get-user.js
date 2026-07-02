@@ -1,4 +1,4 @@
-const { query } = require('./_db');
+const { query, parseOwnedSkins } = require('./_db');
 
 const setCorsHeaders = (res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,7 +32,7 @@ module.exports = async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         const user = rows[0];
-        user.owned_skins = JSON.parse(user.owned_skins || '["default"]');
+        user.owned_skins = parseOwnedSkins(user.owned_skins);
         setCorsHeaders(res);
         res.json(user);
     } catch (err) {
