@@ -1,5 +1,4 @@
-const axios = require('axios');
-const PROXY_URL = 'https://backendapi.freedev.app/api/db-proxy.php';
+const { query } = require('./_db');
 
 const setCorsHeaders = (res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,16 +15,32 @@ module.exports = async (req, res) => {
         setCorsHeaders(res);
         return res.status(405).json({ error: 'Method not allowed' });
     }
+
+    const { username, skin } = req.body;
+    if (!username || !skin) {
+        setCorsHeaders(res);
+        return res.status(400).json({ error: 'Missing data' });
+    }
+
     try {
-        const response = await axios.post(`${PROXY_URL}?action=update-skin`, req.body, {
-            headers: { 'Content-Type': 'application/json' }
-        });
+        // Verify skin is owned
+        const rows = await query('SELECT owned_skins FROM users WHERE username = ?', [username]);
+        if (rows.length === 0) {
+            setCorsHeaders(res);
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const owned = JSON.parse(rows[0].owned_skins || '["default"]');
+        if (!owned.includes(skin)) {
+            setCorsHeaders(res);
+            return res.status(403).json({ error: 'Skin not owned' });
+        }
+        // Update current_skin
+        await query('UPDATE users SET current_skin = ? WHERE username = ?', [skin, username]);
         setCorsHeaders(res);
-        res.json(response.data);
-    } catch (error) {
+        res.json({ success: true, current_skin: skin });
+    } catch (err) {
         setCorsHeaders(res);
-        const status = error.response?.status || 500;
-        const data = error.response?.data || { error: 'Proxy request failed' };
-        res.status(status).json(data);
+        console.error(err);
+        res.status(500).json({ error: 'Database error' });
     }
 };
