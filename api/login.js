@@ -1,5 +1,4 @@
 const axios = require('axios');
-
 const PROXY_URL = 'https://backendapi.freedev.app/api/db-proxy.php';
 
 const setCorsHeaders = (res) => {
@@ -13,12 +12,10 @@ module.exports = async (req, res) => {
         setCorsHeaders(res);
         return res.status(200).end();
     }
-
     if (req.method !== 'POST') {
         setCorsHeaders(res);
         return res.status(405).json({ error: 'Method not allowed' });
     }
-
     try {
         const response = await axios.post(`${PROXY_URL}?action=login`, req.body, {
             headers: { 'Content-Type': 'application/json' }
