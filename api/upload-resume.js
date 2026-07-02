@@ -45,21 +45,24 @@ module.exports = async (req, res) => {
         const { username } = req.body;
         const file = req.file;
 
-        if (!username || !file) {
-            return res.status(400).json({ error: 'Missing username or file' });
+        if (!file) {
+            return res.status(400).json({ error: 'Missing file' });
         }
 
         try {
-            // Get user_id
-            const users = await query('SELECT id FROM users WHERE username = ?', [username]);
-            if (users.length === 0) {
-                return res.status(404).json({ error: 'User not found' });
+            let userId = null;
+
+            // If username is provided, try to find the user
+            if (username) {
+                const users = await query('SELECT id FROM users WHERE username = ?', [username]);
+                if (users.length > 0) {
+                    userId = users[0].id;
+                }
             }
-            const userId = users[0].id;
 
             // Generate unique filename
             const ext = file.originalname.split('.').pop();
-            const filename = `resumes/${Date.now()}-${userId}.${ext}`;
+            const filename = `resumes/${Date.now()}-${userId || 'guest'}.${ext}`;
 
             // Upload to Supabase Storage (private bucket)
             const { data: uploadData, error: uploadError } = await supabase.storage
@@ -75,7 +78,7 @@ module.exports = async (req, res) => {
                 return res.status(500).json({ error: 'File upload failed' });
             }
 
-            // Store file path (not public URL)
+            // Insert record into MySQL (user_id can be NULL)
             await query(
                 `INSERT INTO resumes (user_id, filename, file_path, file_size, mime_type)
                  VALUES (?, ?, ?, ?, ?)`,
