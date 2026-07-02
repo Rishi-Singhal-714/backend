@@ -23,7 +23,8 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const pool = require('./_db').getPool(); // we need pool for transaction
+        // ✅ IMPORTANT: await the pool and then get a connection
+        const pool = await require('./_db').getPool();
         const connection = await pool.getConnection();
         await connection.beginTransaction();
 
