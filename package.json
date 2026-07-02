@@ -2,7 +2,6 @@
   "name": "mario-backend",
   "version": "1.0.0",
   "dependencies": {
-    "mysql2": "^3.6.0",
-    "cors": "^2.8.5"
+    "axios": "^1.6.0"
   }
 }
