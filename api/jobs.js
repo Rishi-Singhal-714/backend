@@ -6,7 +6,6 @@ const setCorsHeaders = (res) => {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 };
 
-// Helper: check if user is admin (requires username in body/query)
 const isAdmin = async (username) => {
     if (!username) return false;
     const rows = await query('SELECT admin FROM users WHERE username = ?', [username]);
@@ -22,7 +21,7 @@ module.exports = async (req, res) => {
     setCorsHeaders(res);
 
     const { method } = req;
-    const { username } = req.query; // for admin check
+    const { username } = req.query;
 
     // GET all jobs (public)
     if (method === 'GET') {
@@ -41,36 +40,64 @@ module.exports = async (req, res) => {
 
     // POST – create job
     if (method === 'POST') {
-        const { title, description, location, job_type, company } = req.body;
+        const {
+            title, description, location, job_type, company,
+            salary_min, salary_max, experience_required, skills,
+            application_deadline, status
+        } = req.body;
+
         if (!title || !description) {
             return res.status(400).json({ error: 'Title and description required' });
         }
+
         try {
             const result = await query(
-                `INSERT INTO jobs (title, description, location, job_type, company)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [title, description, location, job_type, company]
+                `INSERT INTO jobs 
+                    (title, description, location, job_type, company, 
+                     salary_min, salary_max, experience_required, skills, 
+                     application_deadline, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    title, description, location, job_type, company,
+                    salary_min, salary_max, experience_required, skills,
+                    application_deadline, status || 'active'
+                ]
             );
             const newJob = await query('SELECT * FROM jobs WHERE id = ?', [result.insertId]);
             return res.json(newJob[0]);
         } catch (err) {
+            console.error(err);
             return res.status(500).json({ error: 'Database error' });
         }
     }
 
     // PUT – update job
     if (method === 'PUT') {
-        const { id, title, description, location, job_type, company } = req.body;
+        const {
+            id, title, description, location, job_type, company,
+            salary_min, salary_max, experience_required, skills,
+            application_deadline, status
+        } = req.body;
+
         if (!id) return res.status(400).json({ error: 'Job ID required' });
+
         try {
             await query(
-                `UPDATE jobs SET title = ?, description = ?, location = ?, job_type = ?, company = ?
+                `UPDATE jobs SET 
+                    title = ?, description = ?, location = ?, job_type = ?, company = ?,
+                    salary_min = ?, salary_max = ?, experience_required = ?, skills = ?,
+                    application_deadline = ?, status = ?
                  WHERE id = ?`,
-                [title, description, location, job_type, company, id]
+                [
+                    title, description, location, job_type, company,
+                    salary_min, salary_max, experience_required, skills,
+                    application_deadline, status, id
+                ]
             );
             const updated = await query('SELECT * FROM jobs WHERE id = ?', [id]);
             return res.json(updated[0]);
         } catch (err) {
+            console.error(err);
             return res.status(500).json({ error: 'Database error' });
         }
     }
